@@ -1,0 +1,90 @@
+{
+  "name": "gurays-hypertrophy-fitness-app",
+  "version": "1.0.0",
+  "description": "Natural vücut geliştirme ve antrenman takip uygulaması - GURAY's HYPERTROPHY",
+  "main": "main.html",
+  "scripts": {
+    "start": "http-server . -p 8080 -c-1",
+    "dev": "http-server . -p 8080 -c-1 -o",
+    "build:android": "./build-android.sh",
+    "serve": "python3 -m http.server 8080",
+    "test": "echo \"No tests specified\" && exit 0",
+    "lint": "echo \"No linting configured\" && exit 0",
+    "deploy": "echo \"Deploy script would go here\" && exit 0"
+  },
+  "keywords": [
+    "fitness",
+    "bodybuilding",
+    "workout",
+    "training",
+    "hypertrophy",
+    "natural",
+    "pwa",
+    "android",
+    "mobile",
+    "health",
+    "exercise",
+    "tracking",
+    "progressive-web-app"
+  ],
+  "author": {
+    "name": "GURAY's HYPERTROPHY Team",
+    "email": "support@guraysfitness.com",
+    "url": "https://www.guraysfitness.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gurays-fitness/hypertrophy-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gurays-fitness/hypertrophy-app/issues"
+  },
+  "homepage": "https://www.guraysfitness.com",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "pwa": {
+    "name": "GURAY's HYPERTROPHY",
+    "short_name": "GURAY Fitness",
+    "theme_color": "#4e73ff",
+    "background_color": "#0d111c",
+    "display": "standalone",
+    "scope": "/",
+    "start_url": "/main.html"
+  },
+  "cordova": {
+    "platforms": [
+      "android"
+    ],
+    "plugins": {
+      "cordova-plugin-whitelist": {},
+      "cordova-plugin-splashscreen": {},
+      "cordova-plugin-statusbar": {},
+      "cordova-plugin-device": {},
+      "cordova-plugin-vibration": {},
+      "cordova-plugin-file": {},
+      "cordova-plugin-camera": {},
+      "cordova-plugin-network-information": {},
+      "cordova-plugin-dialogs": {},
+      "cordova-plugin-inappbrowser": {}
+    }
+  },
+  "config": {
+    "android": {
+      "package": "com.guraysfitness.hypertrophy",
+      "targetSdkVersion": 33,
+      "minSdkVersion": 22
+    }
+  }
+}

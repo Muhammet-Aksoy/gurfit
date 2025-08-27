@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary colors -->
+    <color name="primary">#4e73ff</color>
+    <color name="primary_dark">#3d5bcc</color>
+    <color name="primary_light">#7591ff</color>
+    
+    <!-- Secondary colors -->
+    <color name="secondary">#8a3ffc</color>
+    <color name="secondary_dark">#6b32c9</color>
+    <color name="secondary_light">#a05fff</color>
+    
+    <!-- Accent colors -->
+    <color name="accent">#00c9b7</color>
+    <color name="accent_dark">#009688</color>
+    <color name="accent_light">#4dd0c0</color>
+    
+    <!-- Background colors -->
+    <color name="background">#0d111c</color>
+    <color name="background_light">#121826</color>
+    <color name="surface">#1a1e30</color>
+    
+    <!-- Text colors -->
+    <color name="text_primary">#f8f9fa</color>
+    <color name="text_secondary">#e9ecef</color>
+    <color name="text_tertiary">#6c757d</color>
+    
+    <!-- Status colors -->
+    <color name="success">#06d6a0</color>
+    <color name="warning">#ffd166</color>
+    <color name="error">#ef476f</color>
+    <color name="info">#4e73ff</color>
+    
+    <!-- Diet color -->
+    <color name="diet">#ff9e00</color>
+    
+    <!-- Basic colors -->
+    <color name="white">#ffffff</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+    
+    <!-- Material Design colors -->
+    <color name="colorPrimary">@color/primary</color>
+    <color name="colorPrimaryDark">@color/primary_dark</color>
+    <color name="colorAccent">@color/accent</color>
+    
+    <!-- Card and border colors -->
+    <color name="card_background">#1a1e30d9</color>
+    <color name="card_border">#4e73ff26</color>
+    <color name="divider">#ffffff1a</color>
+    
+    <!-- Button states -->
+    <color name="button_pressed">#3d5bcc</color>
+    <color name="button_disabled">#6c757d</color>
+    
+    <!-- Ripple effect -->
+    <color name="ripple_light">#ffffff33</color>
+    <color name="ripple_dark">#00000033</color>
+</resources>
