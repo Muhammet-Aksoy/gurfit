@@ -1,0 +1,57 @@
+{
+  "name": "gurays-hypertrophy-fitness",
+  "displayName": "GURAY's HYPERTROPHY",
+  "version": "1.0.0",
+  "description": "Natural vücut geliştirme ve antrenman takip uygulaması",
+  "main": "main.html",
+  "scripts": {
+    "build": "cordova build android",
+    "build-release": "cordova build android --release",
+    "run": "cordova run android",
+    "prepare": "cordova prepare android",
+    "emulate": "cordova emulate android",
+    "clean": "cordova clean android",
+    "requirements": "cordova requirements android"
+  },
+  "keywords": [
+    "fitness",
+    "bodybuilding",
+    "workout",
+    "exercise",
+    "health",
+    "training",
+    "mobile",
+    "android"
+  ],
+  "author": "GURAY's HYPERTROPHY Team",
+  "license": "MIT",
+  "devDependencies": {
+    "cordova": "^12.0.0",
+    "cordova-android": "^12.0.0"
+  },
+  "cordova": {
+    "platforms": [
+      "android"
+    ],
+    "plugins": {
+      "cordova-plugin-whitelist": {},
+      "cordova-plugin-splashscreen": {},
+      "cordova-plugin-statusbar": {},
+      "cordova-plugin-device": {},
+      "cordova-plugin-vibration": {},
+      "cordova-plugin-file": {},
+      "cordova-plugin-camera": {},
+      "cordova-plugin-network-information": {},
+      "cordova-plugin-dialogs": {},
+      "cordova-plugin-inappbrowser": {}
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gurays-fitness/hypertrophy-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gurays-fitness/hypertrophy-app/issues"
+  },
+  "homepage": "https://www.guraysfitness.com"
+}

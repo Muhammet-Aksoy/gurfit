@@ -4,9 +4,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GURAY's HYPERTROPHY Takip Uygulaması</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Natural vücut geliştirme ve antrenman takip uygulaması">
+    <meta name="keywords" content="fitness, antrenman, vücut geliştirme, natural bodybuilding, spor">
+    <meta name="author" content="GURAY's HYPERTROPHY">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="GURAY Fitness">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    
+    <!-- Android Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#4e73ff">
+    
+    <!-- Windows Meta Tags -->
+    <meta name="msapplication-TileColor" content="#4e73ff">
+    <meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16x16.png">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/data-manager.js"></script>
+    <script src="js/fitness-app.js"></script>
     <style>
         :root {
             --primary: #4e73ff;
@@ -2261,7 +2289,7 @@
     </div>
     
     <script>
-        // Modal yönetimi için basit ve etkili bir çözüm
+        // Modal yönetimi ve temel işlevler
         document.addEventListener('DOMContentLoaded', function() {
             console.log("DOM yüklendi, modal işlemleri başlatılıyor...");
             
@@ -2278,9 +2306,7 @@
                     console.log("Kullanıcı bilgileri tıklandı, profil modalı açılıyor...");
                     if (userModal) {
                         userModal.style.display = 'flex';
-                        document.body.style.overflow = 'hidden'; // Sayfa kaydırmayı engelle
-                    } else {
-                        console.error("User modal elementi bulunamadı!");
+                        document.body.style.overflow = 'hidden';
                     }
                 });
             }
@@ -2289,14 +2315,14 @@
             if (closeUserModal) {
                 closeUserModal.addEventListener('click', function() {
                     userModal.style.display = 'none';
-                    document.body.style.overflow = 'auto'; // Sayfa kaydırmayı tekrar etkinleştir
+                    document.body.style.overflow = 'auto';
                 });
             }
             
             if (closeModal) {
                 closeModal.addEventListener('click', function() {
                     logModal.style.display = 'none';
-                    document.body.style.overflow = 'auto'; // Sayfa kaydırmayı tekrar etkinleştir
+                    document.body.style.overflow = 'auto';
                 });
             }
             
@@ -2325,6 +2351,11 @@
                     const formattedDate = today.toISOString().split('T')[0];
                     document.getElementById('workoutDate').value = formattedDate;
                     
+                    // Geçmiş kayıtları yükle
+                    if (window.app) {
+                        window.app.loadWorkoutHistory(exerciseName);
+                    }
+                    
                     // Modalı göster
                     logModal.style.display = 'flex';
                     document.body.style.overflow = 'hidden';
@@ -2338,22 +2369,6 @@
             
             // İlk seti ekle
             addSetRow();
-            
-            // Tab değiştirme işlevselliği
-            document.querySelectorAll('nav a').forEach(tab => {
-                tab.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const target = this.getAttribute('data-target');
-                    
-                    // Tüm tabları ve linkleri deaktive et
-                    document.querySelectorAll('nav a').forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                    
-                    // Tıklanan tabı aktif et
-                    this.classList.add('active');
-                    document.getElementById(target).classList.add('active');
-                });
-            });
             
             // Bildirim fonksiyonu
             window.showNotification = function(message, type = "success") {
@@ -2378,10 +2393,13 @@
             const setRow = document.createElement('div');
             setRow.className = 'set-row';
             setRow.innerHTML = `
-                <input type="number" min="1" max="100" placeholder="Ağırlık (kg)" class="set-weight" value="${weight}">
-                <input type="number" min="1" max="50" placeholder="Tekrar" class="set-reps" value="${reps}">
+                <input type="number" min="1" max="500" placeholder="Ağırlık (kg)" class="set-weight" value="${weight}">
+                <input type="number" min="1" max="100" placeholder="Tekrar" class="set-reps" value="${reps}">
                 <button class="duplicate-set" title="Aynı seti kopyala">
                     <i class="fas fa-copy"></i>
+                </button>
+                <button class="remove-set" title="Seti sil" style="background: var(--danger); margin-left: 5px;">
+                    <i class="fas fa-trash"></i>
                 </button>
             `;
             setsContainer.appendChild(setRow);
@@ -2393,130 +2411,204 @@
                 const reps = setRow.querySelector('.set-reps').value;
                 addSetRow(weight, reps);
             });
+
+            // Set silme butonuna event ekle
+            const removeBtn = setRow.querySelector('.remove-set');
+            removeBtn.addEventListener('click', function() {
+                if (setsContainer.children.length > 1) {
+                    setRow.remove();
+                } else {
+                    showNotification('En az bir set olmalıdır!', 'warning');
+                }
+            });
         }
-        
-        // Basit veri yönetimi
-        let userData = {
-            name: "Kerem Gök",
-            level: "Orta",
-            weight: 80,
-            initialWeight: 75,
-            benchPress: 90,
-            squat: 120,
-            completedWorkouts: 0,
-            streak: 0
-        };
-        
-        // Sayfa yüklendiğinde kullanıcı verilerini güncelle
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('userName').textContent = userData.name;
-            document.getElementById('userLevel').textContent = `Seviye: ${userData.level}`;
-            document.getElementById('userWeightStat').textContent = `${userData.weight} kg`;
-        });
         
         // Grafikleri başlat
         function initCharts() {
             // Bench Press Chart
-            const benchCtx = document.getElementById('benchPressChart').getContext('2d');
-            new Chart(benchCtx, {
-                type: 'line',
-                data: {
-                    labels: ['1.Hft', '2.Hft', '3.Hft', '4.Hft', '5.Hft', '6.Hft', '7.Hft', '8.Hft'],
-                    datasets: [{
-                        label: 'Bench Press (kg)',
-                        data: [70, 75, 80, 82, 85, 88, 90, 95],
-                        borderColor: '#4e73ff',
-                        backgroundColor: 'rgba(78, 115, 255, 0.1)',
-                        borderWidth: 3,
-                        pointRadius: 5,
-                        pointBackgroundColor: '#4e73ff',
-                        tension: 0.3,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
+            const benchCtx = document.getElementById('benchPressChart');
+            if (benchCtx) {
+                new Chart(benchCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: ['1.Hft', '2.Hft', '3.Hft', '4.Hft', '5.Hft', '6.Hft', '7.Hft', '8.Hft'],
+                        datasets: [{
+                            label: 'Bench Press (kg)',
+                            data: [70, 75, 80, 82, 85, 88, 90, 95],
+                            borderColor: '#4e73ff',
+                            backgroundColor: 'rgba(78, 115, 255, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#4e73ff',
+                            tension: 0.3,
+                            fill: true
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            min: 0,
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: '#e9ecef'
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
                             }
                         },
-                        x: {
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                min: 0,
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: '#e9ecef'
+                                }
                             },
-                            ticks: {
-                                color: '#e9ecef'
+                            x: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: '#e9ecef'
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
             
             // Squat Chart
-            const squatCtx = document.getElementById('squatChart').getContext('2d');
-            new Chart(squatCtx, {
-                type: 'line',
-                data: {
-                    labels: ['1.Hft', '2.Hft', '3.Hft', '4.Hft', '5.Hft', '6.Hft', '7.Hft', '8.Hft'],
-                    datasets: [{
-                        label: 'Squat (kg)',
-                        data: [90, 95, 100, 105, 110, 115, 118, 125],
-                        borderColor: '#06d6a0',
-                        backgroundColor: 'rgba(6, 214, 160, 0.1)',
-                        borderWidth: 3,
-                        pointRadius: 5,
-                        pointBackgroundColor: '#06d6a0',
-                        tension: 0.3,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
+            const squatCtx = document.getElementById('squatChart');
+            if (squatCtx) {
+                new Chart(squatCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: ['1.Hft', '2.Hft', '3.Hft', '4.Hft', '5.Hft', '6.Hft', '7.Hft', '8.Hft'],
+                        datasets: [{
+                            label: 'Squat (kg)',
+                            data: [90, 95, 100, 105, 110, 115, 118, 125],
+                            borderColor: '#06d6a0',
+                            backgroundColor: 'rgba(6, 214, 160, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            pointBackgroundColor: '#06d6a0',
+                            tension: 0.3,
+                            fill: true
+                        }]
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            min: 0,
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: '#e9ecef'
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
                             }
                         },
-                        x: {
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                min: 0,
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: '#e9ecef'
+                                }
                             },
-                            ticks: {
-                                color: '#e9ecef'
+                            x: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: '#e9ecef'
+                                }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
         }
         
         // Sayfa yüklendiğinde grafikleri başlat
         document.addEventListener('DOMContentLoaded', initCharts);
+
+        // Service Worker kaydı
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                        console.log('Service Worker kaydedildi:', registration.scope);
+                        
+                        // Update bulunduğunda kullanıcıyı bilgilendir
+                        registration.addEventListener('updatefound', function() {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', function() {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    if (confirm('Uygulama güncellemesi mevcut. Şimdi güncellemek ister misiniz?')) {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(function(error) {
+                        console.log('Service Worker kaydı başarısız:', error);
+                    });
+            });
+        }
+
+        // App Install banner
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', function(e) {
+            console.log('Install prompt tetiklendi');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Install butonunu göster
+            showInstallButton();
+        });
+
+        function showInstallButton() {
+            const installButton = document.createElement('button');
+            installButton.className = 'btn';
+            installButton.innerHTML = '<i class="fas fa-download"></i> Uygulamayı Yükle';
+            installButton.style.position = 'fixed';
+            installButton.style.bottom = '20px';
+            installButton.style.right = '20px';
+            installButton.style.zIndex = '1000';
+            
+            installButton.addEventListener('click', function() {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then(function(choiceResult) {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('Kullanıcı uygulamayı yükledi');
+                        } else {
+                            console.log('Kullanıcı uygulamayı yüklemedi');
+                        }
+                        deferredPrompt = null;
+                        installButton.remove();
+                    });
+                }
+            });
+            
+            document.body.appendChild(installButton);
+            
+            // 10 saniye sonra gizle
+            setTimeout(() => {
+                if (installButton.parentNode) {
+                    installButton.remove();
+                }
+            }, 10000);
+        }
+
+        // Network durumu takibi
+        window.addEventListener('online', function() {
+            showNotification('İnternet bağlantısı geri geldi!', 'success');
+        });
+
+        window.addEventListener('offline', function() {
+            showNotification('İnternet bağlantısı kesildi. Offline modda çalışıyor.', 'warning');
+        });
     </script>
 </body>
 </html>
