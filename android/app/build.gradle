@@ -2,12 +2,12 @@ apply plugin: 'com.android.application'
 
 android {
     namespace 'com.guraysfitness.hypertrophy'
-    compileSdk 33
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.guraysfitness.hypertrophy"
         minSdk 22
-        targetSdk 33
+        targetSdk 34
         versionCode 1
         versionName "1.0.0"
         
@@ -17,14 +17,36 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv("SIGNING_KEYSTORE")
+            def storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+            def keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+            def keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+
+            if (keystorePath && storePassword && keyAlias && keyPassword) {
+                storeFile file(keystorePath)
+                storePassword storePassword
+                keyAlias keyAlias
+                keyPassword keyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            
-            // Signing config for release
-            signingConfig signingConfigs.debug // Change this for production
+
+            // Use release signing config only if env vars are provided
+            def shouldSign = System.getenv("SIGNING_KEYSTORE") != null &&
+                    System.getenv("SIGNING_STORE_PASSWORD") != null &&
+                    System.getenv("SIGNING_KEY_ALIAS") != null &&
+                    System.getenv("SIGNING_KEY_PASSWORD") != null
+            if (shouldSign) {
+                signingConfig signingConfigs.release
+            }
         }
         debug {
             debuggable true

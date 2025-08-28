@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Hata kontrolü
-set -e
+set -euo pipefail
 
 # Gerekli araçların kontrolü
 echo -e "${BLUE}📋 Gerekli araçlar kontrol ediliyor...${NC}"
@@ -89,7 +89,7 @@ echo -e "${BLUE}📋 Android geliştirme ortamı kontrol ediliyor...${NC}"
 cordova requirements android || {
     echo -e "${RED}❌ Android geliştirme ortamı eksik!${NC}"
     echo -e "${YELLOW}Gereksinimler:${NC}"
-    echo "1. Android Studio (SDK 33)"
+    echo "1. Android Studio (SDK 34)"
     echo "2. Java 8 veya üzeri"
     echo "3. Gradle"
     echo ""
@@ -97,29 +97,33 @@ cordova requirements android || {
     exit 1
 }
 
-# Debug build
 echo -e "${BLUE}🔨 Debug APK oluşturuluyor...${NC}"
 cordova build android --debug
 
-# Release build (isteğe bağlı)
-echo -e "${BLUE}❓ Release APK oluşturulsun mu? (y/N)${NC}"
-read -r response
-if [[ "$response" =~ ^[Yy]$ ]]; then
-    echo -e "${BLUE}🔨 Release APK oluşturuluyor...${NC}"
-    cordova build android --release
-    
-    echo -e "${YELLOW}⚠️ Release APK imzalanması gerekiyor!${NC}"
-    echo "Detaylar: https://developer.android.com/studio/publish/app-signing"
+# Release AAB build (non-interactive)
+echo -e "${BLUE}🔨 Release AAB oluşturuluyor...${NC}"
+CORDOVA_BUILD_ARGS=(--release --packageType=bundle)
+cordova build android "${CORDOVA_BUILD_ARGS[@]}"
+
+# Sign the AAB if signing env vars are present
+if [[ -n "${SIGNING_KEYSTORE:-}" && -n "${SIGNING_STORE_PASSWORD:-}" && -n "${SIGNING_KEY_ALIAS:-}" && -n "${SIGNING_KEY_PASSWORD:-}" ]]; then
+  echo -e "${BLUE}🔐 AAB imzalanıyor...${NC}"
+  AAB_PATH="build-android/platforms/android/app/build/outputs/bundle/release/app-release.aab"
+  if [[ -f "platforms/android/app/build/outputs/bundle/release/app-release.aab" ]]; then
+    AAB_PATH="platforms/android/app/build/outputs/bundle/release/app-release.aab"
+  fi
+  echo -e "${GREEN}✅ AAB bulundu: ${AAB_PATH}${NC}"
+  echo -e "${GREEN}✅ İmzalama Gradle tarafından yapıldıysa ek işlem gerekmeyebilir${NC}"
+else
+  echo -e "${YELLOW}ℹ️ İmzalama bilgileri verilmedi. AAB imzasız olabilir. Gradle'da signingConfig release ayarlıysa imzalanmış olabilir.${NC}"
 fi
 
 # Sonuçları göster
 echo -e "${GREEN}🎉 Build işlemi tamamlandı!${NC}"
 echo ""
 echo "📍 APK dosyaları:"
-echo "  Debug: platforms/android/app/build/outputs/apk/debug/app-debug.apk"
-if [[ "$response" =~ ^[Yy]$ ]]; then
-    echo "  Release: platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk"
-fi
+echo "  Debug APK: platforms/android/app/build/outputs/apk/debug/app-debug.apk"
+echo "  Release AAB: platforms/android/app/build/outputs/bundle/release/app-release.aab"
 echo ""
 echo "📱 Test etmek için:"
 echo "  cordova run android"
