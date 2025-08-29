@@ -6,7 +6,7 @@
 class DataManager {
     constructor() {
         this.dbName = 'FitnessAppDB';
-        this.dbVersion = 1;
+        this.dbVersion = 2;
         this.db = null;
         this.initDB();
     }
@@ -73,6 +73,40 @@ class DataManager {
                         autoIncrement: true 
                     });
                     workoutDayStore.createIndex('date', 'date', { unique: true });
+                }
+
+                // Ürünler tablosu
+                if (!db.objectStoreNames.contains('products')) {
+                    const productStore = db.createObjectStore('products', {
+                        keyPath: 'id',
+                        autoIncrement: true
+                    });
+                    productStore.createIndex('sku', 'sku', { unique: true });
+                    productStore.createIndex('name', 'name', { unique: false });
+                    productStore.createIndex('handle', 'handle', { unique: false });
+                }
+
+                // Varyantlar tablosu
+                if (!db.objectStoreNames.contains('variants')) {
+                    const variantStore = db.createObjectStore('variants', {
+                        keyPath: 'id',
+                        autoIncrement: true
+                    });
+                    variantStore.createIndex('productId', 'productId', { unique: false });
+                    variantStore.createIndex('sku', 'sku', { unique: true });
+                    variantStore.createIndex('variantKey', 'variantKey', { unique: true });
+                }
+
+                // Stok hareketleri tablosu
+                if (!db.objectStoreNames.contains('stockMovements')) {
+                    const movementStore = db.createObjectStore('stockMovements', {
+                        keyPath: 'id',
+                        autoIncrement: true
+                    });
+                    movementStore.createIndex('productId', 'productId', { unique: false });
+                    movementStore.createIndex('variantId', 'variantId', { unique: false });
+                    movementStore.createIndex('type', 'type', { unique: false });
+                    movementStore.createIndex('timestamp', 'timestamp', { unique: false });
                 }
             };
         });
@@ -602,6 +636,9 @@ class DataManager {
                 goals: await this.getGoals(),
                 nutrition: await this.getNutritionLogs(),
                 workoutDays: await this.getWorkoutDayStatus(),
+                products: await this.getAllProducts(),
+                variants: await this.getAllVariants(),
+                stockMovements: await this.getAllStockMovements(),
                 timestamp: Date.now()
             };
 
@@ -665,6 +702,11 @@ class DataManager {
                         }
                     }
 
+                    // Envanter verileri (ürünler/varyantlar) varsa güvenli şekilde içe aktar
+                    if (backup.products || backup.variants) {
+                        await this.importInventoryFromData(backup);
+                    }
+
                     resolve(true);
                 } catch (error) {
                     reject(error);
@@ -675,6 +717,323 @@ class DataManager {
                 reject(reader.error);
             };
 
+            reader.readAsText(file);
+        });
+    }
+
+    // ---------- Envanter (Ürün, Varyant, Stok) Yönetimi ----------
+
+    normalizeString(value) {
+        return (value || '')
+            .toString()
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ');
+    }
+
+    buildProductHandle(product) {
+        const base = this.normalizeString(product.handle || product.name || '');
+        return base.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+
+    buildVariantKey(product, variant) {
+        if (variant && variant.sku) return this.normalizeString(variant.sku);
+        const handle = this.buildProductHandle(product);
+        const attrs = variant && variant.attributes ? variant.attributes : {};
+        const parts = Object.keys(attrs)
+            .sort()
+            .map(k => `${this.normalizeString(k)}=${this.normalizeString(attrs[k])}`);
+        return `${handle}|${parts.join('|')}`;
+    }
+
+    async getAllProducts() {
+        return new Promise((resolve, reject) => {
+            if (!this.db) { reject(new Error('Database not initialized')); return; }
+            const tx = this.db.transaction(['products'], 'readonly');
+            const store = tx.objectStore('products');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async getAllVariants() {
+        return new Promise((resolve, reject) => {
+            if (!this.db) { reject(new Error('Database not initialized')); return; }
+            const tx = this.db.transaction(['variants'], 'readonly');
+            const store = tx.objectStore('variants');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async getAllStockMovements() {
+        return new Promise((resolve, reject) => {
+            if (!this.db) { reject(new Error('Database not initialized')); return; }
+            const tx = this.db.transaction(['stockMovements'], 'readonly');
+            const store = tx.objectStore('stockMovements');
+            const req = store.getAll();
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    async findProductBySkuOrHandle({ sku, handle, name }) {
+        if (!this.db) throw new Error('Database not initialized');
+        const tx = this.db.transaction(['products'], 'readonly');
+        const store = tx.objectStore('products');
+
+        if (sku) {
+            try {
+                const bySku = await new Promise((resolve, reject) => {
+                    const idx = store.index('sku');
+                    const req = idx.get(sku);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+                if (bySku) return bySku;
+            } catch (_) {}
+        }
+
+        const normalizedHandle = this.buildProductHandle({ handle, name });
+        if (normalizedHandle) {
+            const byHandle = await new Promise((resolve, reject) => {
+                const idx = store.index('handle');
+                const req = idx.get(normalizedHandle);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            });
+            if (byHandle) return byHandle;
+        }
+
+        // Son çare: isimle benzer arama
+        if (name) {
+            const all = await new Promise((resolve, reject) => {
+                const req = store.getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => resolve([]);
+            });
+            const normName = this.normalizeString(name);
+            const match = all.find(p => this.normalizeString(p.name) === normName);
+            if (match) return match;
+        }
+
+        return null;
+    }
+
+    async findVariant(productId, { sku, variantKey, attributes, product }) {
+        if (!this.db) throw new Error('Database not initialized');
+        const tx = this.db.transaction(['variants'], 'readonly');
+        const store = tx.objectStore('variants');
+
+        if (sku) {
+            const bySku = await new Promise((resolve) => {
+                const idx = store.index('sku');
+                const req = idx.get(sku);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            });
+            if (bySku && (!productId || bySku.productId === productId)) return bySku;
+        }
+
+        const key = variantKey || this.buildVariantKey(product || {}, { attributes, sku });
+        if (key) {
+            const byKey = await new Promise((resolve) => {
+                const idx = store.index('variantKey');
+                const req = idx.get(key);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            });
+            if (byKey && (!productId || byKey.productId === productId)) return byKey;
+        }
+
+        return null;
+    }
+
+    async upsertProduct(rawProduct) {
+        const product = {
+            id: rawProduct.id,
+            name: rawProduct.name,
+            sku: rawProduct.sku || null,
+            handle: this.buildProductHandle(rawProduct),
+            brand: rawProduct.brand || null,
+            category: rawProduct.category || null,
+            stock: Number(rawProduct.stock || 0),
+            hasVariants: Array.isArray(rawProduct.variants) && rawProduct.variants.length > 0
+        };
+
+        const existing = await this.findProductBySkuOrHandle({ sku: product.sku, handle: product.handle, name: product.name });
+
+        return new Promise((resolve, reject) => {
+            if (!this.db) { reject(new Error('Database not initialized')); return; }
+            const tx = this.db.transaction(['products'], 'readwrite');
+            const store = tx.objectStore('products');
+            let request;
+            if (existing) {
+                const updated = { ...existing, ...product, id: existing.id };
+                request = store.put(updated);
+                request.onsuccess = () => resolve(updated);
+                request.onerror = () => reject(request.error);
+            } else {
+                request = store.add(product);
+                request.onsuccess = () => {
+                    product.id = request.result;
+                    resolve(product);
+                };
+                request.onerror = () => reject(request.error);
+            }
+        });
+    }
+
+    async upsertVariant(product, rawVariant) {
+        const variant = {
+            id: rawVariant.id,
+            productId: product.id,
+            sku: rawVariant.sku || null,
+            variantKey: this.buildVariantKey(product, rawVariant),
+            attributes: rawVariant.attributes || {},
+            stock: Number(rawVariant.stock || 0)
+        };
+
+        const existing = await this.findVariant(product.id, { sku: variant.sku, variantKey: variant.variantKey, product });
+
+        return new Promise((resolve, reject) => {
+            if (!this.db) { reject(new Error('Database not initialized')); return; }
+            const tx = this.db.transaction(['variants'], 'readwrite');
+            const store = tx.objectStore('variants');
+            let request;
+            if (existing) {
+                const updated = { ...existing, ...variant, id: existing.id };
+                request = store.put(updated);
+                request.onsuccess = () => resolve(updated);
+                request.onerror = () => reject(request.error);
+            } else {
+                request = store.add(variant);
+                request.onsuccess = () => {
+                    variant.id = request.result;
+                    resolve(variant);
+                };
+                request.onerror = () => reject(request.error);
+            }
+        });
+    }
+
+    async importInventoryFromData(data) {
+        const productsInput = Array.isArray(data) ? data : (data.products || []);
+        const variantsInput = data.variants || [];
+
+        // Ürün listesi içindeki varyantları tercih edin
+        for (const p of productsInput) {
+            const product = await this.upsertProduct(p);
+            if (Array.isArray(p.variants)) {
+                for (const v of p.variants) {
+                    await this.upsertVariant(product, v);
+                }
+            }
+        }
+
+        // Ayrı gelen varyantları da işle (ürünleri bulup ilişkilendir)
+        for (const v of variantsInput) {
+            // Ürünü SKU/handle ile bulmaya çalış
+            let product = null;
+            if (v.productSku) {
+                product = await this.findProductBySkuOrHandle({ sku: v.productSku });
+            }
+            if (!product && v.productName) {
+                product = await this.findProductBySkuOrHandle({ name: v.productName });
+            }
+            if (!product && v.product) {
+                product = await this.upsertProduct(v.product);
+            }
+            if (product) {
+                await this.upsertVariant(product, v);
+            }
+        }
+
+        return true;
+    }
+
+    async adjustStock({ productSku = null, productName = null, variantSku = null, attributes = null, quantity = 0, type = 'adjust', reference = null }) {
+        if (!this.db) throw new Error('Database not initialized');
+        if (!quantity || typeof quantity !== 'number') throw new Error('Geçersiz miktar');
+
+        // Ürün/varyant çözümle
+        const product = await this.findProductBySkuOrHandle({ sku: productSku, name: productName });
+        if (!product) throw new Error('Ürün bulunamadı');
+
+        let variant = null;
+        if (variantSku || attributes) {
+            variant = await this.findVariant(product.id, { sku: variantSku, attributes, product });
+            if (!variant && attributes) {
+                // Varyant yoksa oluşturma YAPMA: kopya oluşumunu engelle
+                throw new Error('Varyant bulunamadı');
+            }
+        }
+
+        // Stok güncelleme
+        await new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['products', 'variants', 'stockMovements'], 'readwrite');
+            const productStore = tx.objectStore('products');
+            const variantStore = tx.objectStore('variants');
+            const movementStore = tx.objectStore('stockMovements');
+
+            const movement = {
+                productId: product.id,
+                variantId: variant ? variant.id : null,
+                type,
+                quantity,
+                reference: reference || null,
+                timestamp: Date.now()
+            };
+
+            const updateEntity = (entity, store) => {
+                const updated = { ...entity, stock: Number(entity.stock || 0) + quantity };
+                const putReq = store.put(updated);
+                putReq.onerror = () => reject(putReq.error);
+                putReq.onsuccess = () => {
+                    const addMv = movementStore.add(movement);
+                    addMv.onerror = () => reject(addMv.error);
+                    addMv.onsuccess = () => resolve(true);
+                };
+            };
+
+            if (variant) {
+                updateEntity(variant, variantStore);
+            } else {
+                updateEntity(product, productStore);
+            }
+        });
+
+        return true;
+    }
+
+    async recordSale({ productSku, productName, variantSku, attributes, quantity, reference }) {
+        const qty = -Math.abs(Number(quantity || 0));
+        return this.adjustStock({ productSku, productName, variantSku, attributes, quantity: qty, type: 'sale', reference });
+    }
+
+    async recordReturn({ productSku, productName, variantSku, attributes, quantity, reference }) {
+        const qty = Math.abs(Number(quantity || 0));
+        return this.adjustStock({ productSku, productName, variantSku, attributes, quantity: qty, type: 'return', reference });
+    }
+
+    // yedekveriler.json içe aktarma (sadece envanter)
+    async importInventoryFromFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    await this.importInventoryFromData(data);
+                    resolve(true);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            reader.onerror = () => reject(reader.error);
             reader.readAsText(file);
         });
     }
