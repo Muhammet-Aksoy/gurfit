@@ -83,7 +83,7 @@
   "config": {
     "android": {
       "package": "com.guraysfitness.hypertrophy",
-      "targetSdkVersion": 33,
+      "targetSdkVersion": 34,
       "minSdkVersion": 22
     }
   }
